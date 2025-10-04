@@ -1,4 +1,4 @@
-# n8n doker
+# n8n docker
 
 ### Установка
 
