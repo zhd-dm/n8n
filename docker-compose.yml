@@ -118,9 +118,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_ADMIN_USER=${GF_ADMIN_USER}
-      - GF_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
-      - GF_AUTH_LDAP_ENABLED=false
+      - GF_ADMIN_USER=admin
+      - GF_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
