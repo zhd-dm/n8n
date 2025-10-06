@@ -1,26 +1,9 @@
 volumes:
   db_storage:
   n8n_storage:
+  prometheus_data:
 
 services:
-  postgres:
-    image: postgres:16
-    restart: always
-    environment:
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-      - POSTGRES_NON_ROOT_USER
-      - POSTGRES_NON_ROOT_PASSWORD
-    volumes:
-      - db_storage:/var/lib/postgresql/data
-      - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
@@ -48,3 +31,98 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  n8n_metrics_exporter:
+    image: curlimages/curl
+    container_name: n8n_metrics_exporter
+    restart: always
+    volumes:
+      - /var/lib/node_exporter/textfile_collector:/textfiles
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      while true; do
+        timestamp=$(date +%s);
+        success=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions?limit=1 | grep -o '"finished":true' | wc -l);
+        running=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions-active | grep -o '"id"' | wc -l);
+        failed=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions?status=error\&limit=1 | grep -o '"id"' | wc -l);
+        echo "# HELP n8n_executions_successful Number of successful executions" > /textfiles/n8n.prom;
+        echo "# TYPE n8n_executions_successful gauge" >> /textfiles/n8n.prom;
+        echo "n8n_executions_successful ${success}" >> /textfiles/n8n.prom;
+        echo "# HELP n8n_executions_running Number of active executions" >> /textfiles/n8n.prom;
+        echo "# TYPE n8n_executions_running gauge" >> /textfiles/n8n.prom;
+        echo "n8n_executions_running ${running}" >> /textfiles/n8n.prom;
+        echo "# HELP n8n_executions_failed Number of failed executions" >> /textfiles/n8n.prom;
+        echo "# TYPE n8n_executions_failed gauge" >> /textfiles/n8n.prom;
+        echo "n8n_executions_failed ${failed}" >> /textfiles/n8n.prom;
+        sleep 60;
+      done
+    environment:
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+
+
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+      - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres_exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    restart: always
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_NON_ROOT_USER}:${POSTGRES_NON_ROOT_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9187:9187"
+
+  node_exporter:
+    image: prom/node-exporter
+    restart: always
+    pid: "host"
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile_collector:/var/lib/node_exporter/textfile_collector
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.textfile.directory=/var/lib/node_exporter/textfile_collector'
+    ports:
+      - "9100:9100"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - postgres_exporter
+      - node_exporter
+      - cadvisor
