@@ -1,0 +1,90 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "title": "n8n Workflow Executions",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "n8n_workflow_executions_total",
+          "legendFormat": "{{workflow}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "n8n Workflow Errors",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "n8n_workflow_errors_total",
+          "legendFormat": "{{workflow}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Postgres Connections",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count",
+          "legendFormat": "connections",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "title": "Node Exporter CPU Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "title": "Node Exporter Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100",
+          "legendFormat": "{{instance}}",
+          "refId": "E"
+        }
+      ]
+    },
+    {
+      "title": "cAdvisor Container CPU Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total[1m])",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "F"
+        }
+      ]
+    },
+    {
+      "title": "cAdvisor Container Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "G"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 30,
+  "version": 1,
+  "title": "n8n + System Metrics",
+  "tags": ["n8n", "system", "prometheus"],
+  "style": "dark",
+  "timezone": "browser"
+}
