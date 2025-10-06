@@ -37,29 +37,12 @@ services:
     container_name: n8n_metrics_exporter
     restart: always
     volumes:
+      - ./scripts/n8n-metrics.sh:/n8n-metrics.sh:ro
       - /var/lib/node_exporter/textfile_collector:/textfiles
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      while true; do
-        timestamp=$(date +%s);
-        success=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions?limit=1 | grep -o '"finished":true' | wc -l);
-        running=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions-active | grep -o '"id"' | wc -l);
-        failed=$(curl -s -u "${N8N_BASIC_AUTH_USER}:${N8N_BASIC_AUTH_PASSWORD}" localhost:5678/rest/executions?status=error\&limit=1 | grep -o '"id"' | wc -l);
-        echo "# HELP n8n_executions_successful Number of successful executions" > /textfiles/n8n.prom;
-        echo "# TYPE n8n_executions_successful gauge" >> /textfiles/n8n.prom;
-        echo "n8n_executions_successful ${success}" >> /textfiles/n8n.prom;
-        echo "# HELP n8n_executions_running Number of active executions" >> /textfiles/n8n.prom;
-        echo "# TYPE n8n_executions_running gauge" >> /textfiles/n8n.prom;
-        echo "n8n_executions_running ${running}" >> /textfiles/n8n.prom;
-        echo "# HELP n8n_executions_failed Number of failed executions" >> /textfiles/n8n.prom;
-        echo "# TYPE n8n_executions_failed gauge" >> /textfiles/n8n.prom;
-        echo "n8n_executions_failed ${failed}" >> /textfiles/n8n.prom;
-        sleep 60;
-      done
+    entrypoint: ["/bin/sh", "/n8n-metrics.sh"]
     environment:
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-
 
   postgres:
     image: postgres:16
